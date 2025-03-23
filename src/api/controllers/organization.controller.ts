@@ -9,6 +9,7 @@ import { WAMonitoringService } from '@api/services/monitor.service';
 import { CacheService } from '@api/services/cache.service';
 import { Events } from '@api/types/wa.types';
 import EventEmitter2 from 'eventemitter2';
+import { v4 } from 'uuid';
 
 export class OrganizationController {
   private readonly logger = new Logger('OrganizationController');
@@ -27,12 +28,21 @@ export class OrganizationController {
         throw new BadRequestException(i18n.t('organization.disable'));
       }
 
+      // Generate a token using UUID v4 in uppercase format
+      let token: string;
+      if (!data.token) {
+        token = v4().toUpperCase();
+      } else {
+        token = data.token;
+      }
+
       const organization = await this.prismaRepository.organization.create({
         data: {
           name: data.name,
           description: data.description || null,
           instanceLimit: data.instanceLimit || 5,
           status: data.status || OrganizationStatus.ACTIVE,
+          token: token,
         },
       });
 
@@ -53,6 +63,7 @@ export class OrganizationController {
         instanceLimit: organization.instanceLimit,
         status: organization.status as unknown as OrganizationStatus,
         instanceCount: 0,
+        token: organization.token,
       };
     } catch (error) {
       this.logger.error(error);
@@ -89,6 +100,7 @@ export class OrganizationController {
             instanceLimit: org.instanceLimit,
             status: org.status as unknown as OrganizationStatus,
             instanceCount,
+            token: org.token,
           };
         }),
       );
@@ -125,6 +137,7 @@ export class OrganizationController {
         instanceLimit: organization.instanceLimit,
         status: organization.status as unknown as OrganizationStatus,
         instanceCount,
+        token: organization.token,
       };
     } catch (error) {
       this.logger.error(error);
@@ -153,6 +166,7 @@ export class OrganizationController {
           description: data.description !== undefined ? data.description : organization.description,
           instanceLimit: data.instanceLimit !== undefined ? data.instanceLimit : organization.instanceLimit,
           status: data.status !== undefined ? data.status : organization.status,
+          token: data.token !== undefined ? data.token : organization.token,
         },
       });
 
@@ -178,6 +192,7 @@ export class OrganizationController {
         instanceLimit: updatedOrganization.instanceLimit,
         status: updatedOrganization.status as unknown as OrganizationStatus,
         instanceCount,
+        token: updatedOrganization.token,
       };
     } catch (error) {
       this.logger.error(error);

@@ -414,10 +414,29 @@ export class InstanceController {
     };
   }
 
-  public async fetchInstances({ instanceName, instanceId, number }: InstanceDto, key: string) {
+  public async fetchInstances({ instanceName, instanceId, number, organizationId }: InstanceDto, key: string) {
     const env = this.configService.get<Auth>('AUTHENTICATION').API_KEY;
 
     if (env.KEY !== key) {
+      // If an organizationId is defined (set in the guard when using an organization token)
+      if (organizationId) {
+        const instancesByOrg = await this.prismaRepository.instance.findMany({
+          where: {
+            organizationId: organizationId,
+            name: instanceName || undefined,
+            id: instanceId || undefined,
+          },
+        });
+
+        if (instancesByOrg.length > 0) {
+          const names = instancesByOrg.map((instance) => instance.name);
+          return this.waMonitor.instanceInfo(names);
+        } else {
+          return { instances: [] };
+        }
+      }
+
+      // Default behavior for instance token
       const instancesByKey = await this.prismaRepository.instance.findMany({
         where: {
           token: key,
@@ -428,10 +447,27 @@ export class InstanceController {
 
       if (instancesByKey.length > 0) {
         const names = instancesByKey.map((instance) => instance.name);
-
         return this.waMonitor.instanceInfo(names);
       } else {
         throw new UnauthorizedException();
+      }
+    }
+
+    // For global API Key with additional filters
+    if (organizationId) {
+      const instancesByOrg = await this.prismaRepository.instance.findMany({
+        where: {
+          organizationId: organizationId,
+          name: instanceName || undefined,
+          id: instanceId || undefined,
+        },
+      });
+      
+      if (instancesByOrg.length > 0) {
+        const names = instancesByOrg.map((instance) => instance.name);
+        return this.waMonitor.instanceInfo(names);
+      } else {
+        return { instances: [] };
       }
     }
 

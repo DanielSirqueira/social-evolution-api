@@ -8,6 +8,7 @@ CREATE TABLE "Organization" (
     "description" TEXT,
     "instanceLimit" INTEGER NOT NULL DEFAULT 3,
     "status" "OrganizationStatus" NOT NULL DEFAULT 'ACTIVE',
+    "token" TEXT,
     "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP,
 
@@ -18,4 +19,4 @@ CREATE TABLE "Organization" (
 ALTER TABLE "Instance" ADD COLUMN "organizationId" UUID;
 
 -- AddForeignKey
-ALTER TABLE "Instance" ADD CONSTRAINT "Instance_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE; 
+ALTER TABLE "Instance" ADD CONSTRAINT "Instance_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;

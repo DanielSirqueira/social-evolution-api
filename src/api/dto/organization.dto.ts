@@ -10,6 +10,7 @@ export class CreateOrganizationDto {
   description?: string;
   instanceLimit?: number;
   status?: OrganizationStatus;
+  token?: string;
 }
 
 export class UpdateOrganizationDto {
@@ -17,6 +18,7 @@ export class UpdateOrganizationDto {
   description?: string;
   instanceLimit?: number;
   status?: OrganizationStatus;
+  token?: string;
 }
 
 export class OrganizationDto {
@@ -26,4 +28,5 @@ export class OrganizationDto {
   instanceLimit: number;
   status: OrganizationStatus;
   instanceCount?: number;
+  token?: string;
 } 

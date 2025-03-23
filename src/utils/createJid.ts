@@ -1,4 +1,4 @@
-// Check if the number is MX or AR
+// Check if the number is from Mexico or Argentina
 function formatMXOrARNumber(jid: string): string {
   const countryCode = jid.substring(0, 2);
 
@@ -13,7 +13,7 @@ function formatMXOrARNumber(jid: string): string {
   return jid;
 }
 
-// Check if the number is br
+// Check if the number is from Brazil
 function formatBRNumber(jid: string) {
   const regexp = new RegExp(/^(\d{2})(\d{2})\d{1}(\d{8})$/);
   if (regexp.test(jid)) {

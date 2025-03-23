@@ -28,7 +28,8 @@ export const createOrganizationSchema: JSONSchema7 = {
     name: { type: 'string' },
     description: { type: 'string' },
     instanceLimit: { type: 'number', minimum: 1 },
-    status: { type: 'string', enum: Object.values(OrganizationStatus) }
+    status: { type: 'string', enum: Object.values(OrganizationStatus) },
+    token: { type: 'string' }
   },
   required: ['name'],
   additionalProperties: false,
@@ -42,7 +43,8 @@ export const updateOrganizationSchema: JSONSchema7 = {
     name: { type: 'string' },
     description: { type: 'string' },
     instanceLimit: { type: 'number', minimum: 1 },
-    status: { type: 'string', enum: Object.values(OrganizationStatus) }
+    status: { type: 'string', enum: Object.values(OrganizationStatus) },
+    token: { type: 'string' }
   },
   additionalProperties: false
 };

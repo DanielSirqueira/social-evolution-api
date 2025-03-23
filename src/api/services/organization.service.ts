@@ -93,7 +93,7 @@ export class OrganizationService {
       });
 
       if (!organization) {
-        throw new BadRequestException('Organização não encontrada');
+        throw new BadRequestException('Organization not found');
       }
 
       const instanceCount = await this.prismaRepository.instance.count({
@@ -125,7 +125,7 @@ export class OrganizationService {
       });
 
       if (!organization) {
-        throw new BadRequestException('Organização não encontrada');
+        throw new BadRequestException('Organization not found');
       }
 
       const updatedOrganization = await this.prismaRepository.organization.update({
@@ -186,26 +186,25 @@ export class OrganizationService {
         throw new BadRequestException(i18n.t('organization.disable'));
       }
 
-      // Verificar se a organização existe
+      // Check if the organization exists
       const organization = await this.prismaRepository.organization.findUnique({
         where: { id },
       });
 
       if (!organization) {
-        throw new BadRequestException('Organização não encontrada');
+        throw new BadRequestException('Organization not found');
       }
 
-      // Buscar todas as instâncias associadas à organização
+      // Get all instances associated with this organization
       const instances = await this.prismaRepository.instance.findMany({
         where: { organizationId: id },
-        select: { id: true },
       });
 
-      // Excluir todas as instâncias associadas
+      // Delete all associated instances
       if (instances.length > 0) {
-        this.logger.log(`Excluindo ${instances.length} instâncias associadas à organização ${id}`);
+        this.logger.log(`Deleting ${instances.length} instances associated with organization ${id}`);
         
-        // Excluir cada instância individualmente
+        // Delete each instance individually
         for (const instance of instances) {
           await this.prismaRepository.instance.delete({
             where: { id: instance.id },
@@ -213,12 +212,12 @@ export class OrganizationService {
         }
       }
 
-      // Excluir a organização
+      // Delete the organization
       await this.prismaRepository.organization.delete({
         where: { id },
       });
 
-      this.logger.log(`Organização ${id} excluída com sucesso, junto com ${instances.length} instâncias`);
+      this.logger.log(`Organization ${id} successfully deleted, along with ${instances.length} instances`);
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException(error.message);

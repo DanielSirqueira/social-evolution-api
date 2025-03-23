@@ -15,6 +15,7 @@ model Organization {
   description   String?
   instanceLimit Int       @default(3)
   status        OrganizationStatus @default(ACTIVE)
+  token         String?
   createdAt     DateTime? @default(now())
   updatedAt     DateTime? @updatedAt
   instances     Instance[]

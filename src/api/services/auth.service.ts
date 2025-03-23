@@ -19,4 +19,20 @@ export class AuthService {
 
     return true;
   }
+
+  public async checkDuplicateOrganizationToken(token: string) {
+    if (!token) {
+      return true;
+    }
+
+    const organizations = await this.prismaRepository.organization.findMany({
+      where: { token },
+    });
+
+    if (organizations.length > 0) {
+      throw new BadRequestException('Organization token already exists');
+    }
+
+    return true;
+  }
 }
