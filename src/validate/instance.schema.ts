@@ -35,6 +35,7 @@ export const instanceSchema: JSONSchema7 = {
       type: 'string',
       enum: Object.values(Integration),
     },
+    organizationId: { type: 'string' },
     // Settings
     rejectCall: { type: 'boolean' },
     msgCall: { type: 'string' },

@@ -2,7 +2,7 @@ import { InstanceDto, SetPresenceDto } from '@api/dto/instance.dto';
 import { ChatwootService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.service';
 import { ProviderFiles } from '@api/provider/sessions';
 import { PrismaRepository } from '@api/repository/repository.service';
-import { channelController, eventManager } from '@api/server.module';
+import { channelController, eventManager, organizationController } from '@api/server.module';
 import { CacheService } from '@api/services/cache.service';
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { SettingsService } from '@api/services/settings.service';
@@ -14,6 +14,7 @@ import { delay } from 'baileys';
 import { isArray, isURL } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';
 import { v4 } from 'uuid';
+import { OrganizationStatus } from '@api/dto/organization.dto';
 
 import { ProxyController } from './proxy.controller';
 
@@ -36,6 +37,57 @@ export class InstanceController {
 
   public async createInstance(instanceData: InstanceDto) {
     try {
+      // Check if organization is required
+      if (this.configService.get('ORGANIZATION').ENABLED) {
+        if (!instanceData.organizationId) {
+          throw new BadRequestException('OrganizationId is required when organization feature is enabled');
+        }
+
+        // Verify if organization exists and check its status and instance limit
+        const organization = await this.prismaRepository.organization.findUnique({
+          where: { id: instanceData.organizationId },
+          include: { _count: { select: { instances: true } } },
+        });
+        
+        if (!organization) {
+          throw new BadRequestException('Organization not found');
+        }
+        
+        // Check if organization is active
+        if (organization.status !== OrganizationStatus.ACTIVE) {
+          this.logger.warn(`Cannot create instance for inactive organization ${instanceData.organizationId}`);
+          throw new BadRequestException('Cannot create instance for inactive organization');
+        }
+        
+        // Check if instance limit is reached
+        if (organization._count.instances >= organization.instanceLimit) {
+          throw new BadRequestException(`Organization instance limit reached (${organization._count.instances}/${organization.instanceLimit})`);
+        }
+      }
+      // If organization feature is not enabled, check is optional
+      else if (instanceData.organizationId) {
+        // Verify if organization exists and check its status and instance limit
+        const organization = await this.prismaRepository.organization.findUnique({
+          where: { id: instanceData.organizationId },
+          include: { _count: { select: { instances: true } } },
+        });
+        
+        if (!organization) {
+          throw new BadRequestException('Organization not found');
+        }
+        
+        // Check if organization is active
+        if (organization.status !== OrganizationStatus.ACTIVE) {
+          this.logger.warn(`Cannot create instance for inactive organization ${instanceData.organizationId}`);
+          throw new BadRequestException('Cannot create instance for inactive organization');
+        }
+        
+        // Check if instance limit is reached
+        if (organization._count.instances >= organization.instanceLimit) {
+          throw new BadRequestException(`Organization instance limit reached (${organization._count.instances}/${organization.instanceLimit})`);
+        }
+      }
+
       const instance = channelController.init(instanceData, {
         configService: this.configService,
         eventEmitter: this.eventEmitter,
@@ -70,6 +122,7 @@ export class InstanceController {
         number: instanceData.number,
         businessId: instanceData.businessId,
         status: instanceData.status,
+        organizationId: instanceData.organizationId,
       });
 
       instance.setInstance({

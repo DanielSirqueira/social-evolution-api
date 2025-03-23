@@ -23,5 +23,12 @@
   "cw.contactMessage.number": "Número",
   "cw.message.notsent": "🚨 Não foi possível enviar a mensagem. Verifique sua conexão. {{error}}",
   "cw.message.numbernotinwhatsapp": "🚨 A mensagem não foi enviada, pois o contato não é um número válido do WhatsApp.",
-  "cw.message.edited": "Mensagem editada"
+  "cw.message.edited": "Mensagem editada",
+  "organization.required": "Organização é obrigatória quando o modo organização está ativado",
+  "organization.notfound": "Organização não encontrada",
+  "organization.instancelimit": "Limite de instâncias da organização atingido",
+  "organization.create.success": "Organização criada com sucesso",
+  "organization.update.success": "Organização atualizada com sucesso",
+  "organization.delete.success": "Organização excluída com sucesso",
+  "organization.disable": "Modo organização está desativado"
 }

@@ -256,6 +256,11 @@ export type S3 = {
 export type CacheConf = { REDIS: CacheConfRedis; LOCAL: CacheConfLocal };
 export type Production = boolean;
 
+export type Organization = {
+  ENABLED: boolean;
+  DEFAULT_INSTANCE_LIMIT: number;
+};
+
 export interface Env {
   SERVER: HttpServer;
   CORS: Cors;
@@ -282,6 +287,7 @@ export interface Env {
   S3?: S3;
   AUTHENTICATION: Auth;
   PRODUCTION?: Production;
+  ORGANIZATION: Organization;
 }
 
 export type Key = keyof Env;
@@ -311,9 +317,13 @@ export class ConfigService {
       SERVER: {
         TYPE: (process.env.SERVER_TYPE as 'http' | 'https') || 'http',
         PORT: Number.parseInt(process.env.SERVER_PORT) || 8080,
-        URL: process.env.SERVER_URL,
-        DISABLE_DOCS: process.env?.SERVER_DISABLE_DOCS === 'true',
-        DISABLE_MANAGER: process.env?.SERVER_DISABLE_MANAGER === 'true',
+        URL: process.env.SERVER_URL || 'http://localhost:8080',
+        DISABLE_DOCS: isBooleanString(process.env.DISABLE_DOCS)
+          ? String(process.env.DISABLE_DOCS).toLowerCase() === 'true'
+          : false,
+        DISABLE_MANAGER: isBooleanString(process.env.DISABLE_MANAGER)
+          ? String(process.env.DISABLE_MANAGER).toLowerCase() === 'true'
+          : false,
       },
       CORS: {
         ORIGIN: process.env.CORS_ORIGIN?.split(',') || ['*'],
@@ -561,6 +571,10 @@ export class ConfigService {
           KEY: process.env.AUTHENTICATION_API_KEY || 'BQYHJGJHJ',
         },
         EXPOSE_IN_FETCH_INSTANCES: process.env?.AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES === 'true',
+      },
+      ORGANIZATION: {
+        ENABLED: process.env.ORGANIZATION_ENABLED === 'true' ? true : false,
+        DEFAULT_INSTANCE_LIMIT: Number(process.env.ORGANIZATION_DEFAULT_INSTANCE_LIMIT || '3'),
       },
     };
   }

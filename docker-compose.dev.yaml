@@ -5,11 +5,11 @@ services:
     build: .
     restart: always
     ports:
-      - 8080:8080
+      - 0.0.0.0:8080:8080
     volumes:
       - evolution_instances:/evolution/instances
     networks:
-      - evolution-net
+      - network_swarm_public
     env_file:
       - .env
     expose:
@@ -20,6 +20,7 @@ volumes:
 
 
 networks:
-  evolution-net:
-    name: evolution-net
+  network_swarm_public:
+    name: network_swarm_public
     driver: bridge
+    external: true

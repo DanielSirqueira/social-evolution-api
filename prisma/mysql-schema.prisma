@@ -60,6 +60,22 @@ enum DifyBotType {
   workflow
 }
 
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Organization {
+  id            String            @id @default(uuid())
+  name          String
+  description   String?
+  instanceLimit Int               @default(3)
+  status        OrganizationStatus @default(ACTIVE)
+  createdAt     DateTime?         @default(now())
+  updatedAt     DateTime?         @updatedAt
+  instances     Instance[]
+}
+
 model Instance {
   id                      String                   @id @default(cuid())
   name                    String                   @unique @db.VarChar(255)
@@ -73,10 +89,12 @@ model Instance {
   token                   String?                  @db.VarChar(255)
   clientName              String?                  @db.VarChar(100)
   disconnectionReasonCode Int?                     @db.Int
-  disconnectionObject     Json?                    @db.Json
-  disconnectionAt         DateTime?                @db.Timestamp
-  createdAt               DateTime?                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
-  updatedAt               DateTime?                @updatedAt @db.Timestamp
+  disconnectionObject     Json?
+  disconnectionAt         DateTime?
+  createdAt               DateTime?                @default(now())
+  updatedAt               DateTime?                @updatedAt
+  organizationId          String?
+  organization            Organization?            @relation(fields: [organizationId], references: [id])
   Chat                    Chat[]
   Contact                 Contact[]
   Message                 Message[]

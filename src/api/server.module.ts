@@ -39,6 +39,7 @@ import { WAMonitoringService } from './services/monitor.service';
 import { ProxyService } from './services/proxy.service';
 import { SettingsService } from './services/settings.service';
 import { TemplateService } from './services/template.service';
+import { OrganizationController } from './controllers/organization.controller';
 
 const logger = new Logger('WA MODULE');
 
@@ -124,5 +125,7 @@ export const evolutionBotController = new EvolutionBotController(evolutionBotSer
 
 const flowiseService = new FlowiseService(waMonitor, configService, prismaRepository);
 export const flowiseController = new FlowiseController(flowiseService, prismaRepository, waMonitor);
+
+export const organizationController = new OrganizationController(prismaRepository, configService, waMonitor, cache, eventEmitter);
 
 logger.info('Module - ON');

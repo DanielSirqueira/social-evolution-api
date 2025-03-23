@@ -135,34 +135,114 @@ export class WAMonitoringService {
   }
 
   public async cleaningUp(instanceName: string) {
-    let instanceDbId: string;
-    if (this.db.SAVE_DATA.INSTANCE) {
+    try {
+      let instanceDbId: string;
+      
+      // Encontrar a instância primeiro
       const findInstance = await this.prismaRepository.instance.findFirst({
         where: { name: instanceName },
       });
-
-      if (findInstance) {
-        const instance = await this.prismaRepository.instance.update({
-          where: { name: instanceName },
-          data: { connectionStatus: 'close' },
+      
+      if (!findInstance) {
+        this.logger.warn(`Instance ${instanceName} not found for cleanup`);
+        return;
+      }
+      
+      instanceDbId = findInstance.id;
+      this.logger.log(`Starting cleanup of instance ${instanceName} (ID: ${instanceDbId})`);
+      
+      // Excluir sessões de integração primeiro para evitar problemas de integridade referencial
+      try {
+        this.logger.log(`Searching for integration sessions of instance ${instanceName}`);
+        const integrationSessions = await this.prismaRepository.integrationSession.findMany({
+          where: { instanceId: instanceDbId },
         });
-
-        rmSync(join(INSTANCE_DIR, instance.id), { recursive: true, force: true });
-
-        instanceDbId = instance.id;
-        await this.prismaRepository.session.deleteMany({ where: { sessionId: instance.id } });
+        
+        if (integrationSessions.length > 0) {
+          this.logger.log(`Found ${integrationSessions.length} integration sessions to delete`);
+          
+          for (const session of integrationSessions) {
+            try {
+              // Primeiro limpar referências de mensagens se existirem
+              try {
+                const messages = await this.prismaRepository.message.findMany({
+                  where: { sessionId: session.id },
+                });
+                
+                if (messages.length > 0) {
+                  this.logger.log(`Updating ${messages.length} messages to remove reference to session ${session.id}`);
+                  
+                  // Atualizar cada mensagem para remover a referência à sessão
+                  for (const message of messages) {
+                    try {
+                      await this.prismaRepository.message.update({
+                        where: { id: message.id },
+                        data: { sessionId: null },
+                      });
+                    } catch (messageError) {
+                      this.logger.error(`Error updating message ${message.id}: ${messageError.message}`);
+                    }
+                  }
+                }
+              } catch (messagesError) {
+                this.logger.error(`Error fetching messages from session ${session.id}: ${messagesError.message}`);
+              }
+              
+              // Agora excluir a sessão
+              await this.prismaRepository.integrationSession.delete({
+                where: { id: session.id },
+              });
+              this.logger.log(`Integration session ${session.id} successfully deleted`);
+            } catch (sessionError) {
+              this.logger.error(`Error deleting integration session ${session.id}: ${sessionError.message}`);
+            }
+          }
+        } else {
+          this.logger.log(`No integration sessions found for instance ${instanceName}`);
+        }
+      } catch (error) {
+        this.logger.error(`Error fetching or deleting integration sessions: ${error.message}`);
       }
-    }
+      
+      if (this.db.SAVE_DATA.INSTANCE) {
+        try {
+          this.logger.log(`Updating instance ${instanceName} status to 'close'`);
+          
+          const instance = await this.prismaRepository.instance.update({
+            where: { name: instanceName },
+            data: { connectionStatus: 'close' },
+          });
 
-    if (this.redis.REDIS.ENABLED && this.redis.REDIS.SAVE_INSTANCES) {
-      await this.cache.delete(instanceName);
-      if (instanceDbId) {
-        await this.cache.delete(instanceDbId);
+          rmSync(join(INSTANCE_DIR, instance.id), { recursive: true, force: true });
+          
+          await this.prismaRepository.session.deleteMany({ where: { sessionId: instance.id } });
+        } catch (error) {
+          this.logger.error(`Error updating instance status: ${error.message}`);
+        }
       }
-    }
 
-    if (this.providerSession?.ENABLED) {
-      await this.providerFiles.removeSession(instanceName);
+      if (this.redis.REDIS.ENABLED && this.redis.REDIS.SAVE_INSTANCES) {
+        try {
+          await this.cache.delete(instanceName);
+          if (instanceDbId) {
+            await this.cache.delete(instanceDbId);
+          }
+        } catch (error) {
+          this.logger.error(`Error clearing Redis cache: ${error.message}`);
+        }
+      }
+
+      if (this.providerSession?.ENABLED) {
+        try {
+          await this.providerFiles.removeSession(instanceName);
+        } catch (error) {
+          this.logger.error(`Error removing session files: ${error.message}`);
+        }
+      }
+      
+      this.logger.log(`Cleanup of instance ${instanceName} completed successfully`);
+    } catch (error) {
+      this.logger.error(`Unexpected error cleaning up instance ${instanceName}: ${error.message}`);
     }
   }
 
@@ -231,6 +311,7 @@ export class WAMonitoringService {
           token: data.hash,
           clientName: clientName,
           businessId: data.businessId,
+          organizationId: data.organizationId,
         },
       });
     } catch (error) {
