@@ -15,6 +15,7 @@ import { isArray, isURL } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';
 import { v4 } from 'uuid';
 import { OrganizationStatus } from '@api/dto/organization.dto';
+import { Router } from 'express';
 
 import { ProxyController } from './proxy.controller';
 
@@ -35,11 +36,33 @@ export class InstanceController {
 
   private readonly logger = new Logger('InstanceController');
 
-  public async createInstance(instanceData: InstanceDto) {
+  public async createInstance(instanceData: InstanceDto, apiKey?: string) {
     try {
       // Check if organization is required
       if (this.configService.get('ORGANIZATION').ENABLED) {
-        if (!instanceData.organizationId) {
+        // If organizationId is not provided in the request body but we have an apikey that might be an organization token
+        if (!instanceData.organizationId && apiKey) {
+          // If apiKey is provided and not the global API key, check if it belongs to an organization
+          if (apiKey !== this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY) {
+            // Try to find an organization with the provided token
+            const organization = await this.prismaRepository.organization.findFirst({
+              where: { token: apiKey },
+            });
+            
+            // If an organization is found, use its ID
+            if (organization) {
+              this.logger.log(`Using organization ID ${organization.id} from provided token`);
+              instanceData.organizationId = organization.id;
+            } else {
+              // If no organization found and organization feature is enabled, throw an error
+              throw new BadRequestException('OrganizationId is required when organization feature is enabled');
+            }
+          } else {
+            // If apiKey is the global API key, organization ID is required
+            throw new BadRequestException('OrganizationId is required when organization feature is enabled');
+          }
+        } else if (!instanceData.organizationId) {
+          // If no organizationId and no valid apiKey, throw an error
           throw new BadRequestException('OrganizationId is required when organization feature is enabled');
         }
 
@@ -418,7 +441,20 @@ export class InstanceController {
     const env = this.configService.get<Auth>('AUTHENTICATION').API_KEY;
 
     if (env.KEY !== key) {
-      // If an organizationId is defined (set in the guard when using an organization token)
+      // Check if the key is an organization token (only if organization feature is enabled)
+      if (this.configService.get('ORGANIZATION').ENABLED && !organizationId) {
+        const organization = await this.prismaRepository.organization.findFirst({
+          where: { token: key },
+        });
+
+        if (organization) {
+          // Use the organization ID from the token
+          organizationId = organization.id;
+          this.logger.log(`Using organization ID ${organization.id} from provided token in fetchInstances`);
+        }
+      }
+      
+      // If an organizationId is defined (set in the guard when using an organization token or found above)
       if (organizationId) {
         const instancesByOrg = await this.prismaRepository.instance.findMany({
           where: {
@@ -524,5 +560,24 @@ export class InstanceController {
     } catch (error) {
       throw new BadRequestException(error.toString());
     }
+  }
+
+  public async deleteAllCache(apikey: string) {
+    const env = this.configService.get<Auth>('AUTHENTICATION').API_KEY;
+
+    if (env.KEY !== apikey) {
+      throw new UnauthorizedException();
+    }
+
+    const instances = this.waMonitor.instanceInfo(null);
+
+    await Promise.all(
+      Object.keys(instances).map(async (instance) => {
+        this.logger.verbose(`Cleaning up cache for instance: ${instance}`);
+        await this.waMonitor.cleaningUp(instance);
+      }),
+    );
+
+    return { success: true };
   }
 }

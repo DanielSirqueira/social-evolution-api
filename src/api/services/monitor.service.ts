@@ -136,13 +136,13 @@ export class WAMonitoringService {
 
   public async cleaningUp(instanceName: string) {
     try {
-      let instanceDbId: string;
+    let instanceDbId: string;
       
       // Encontrar a instância primeiro
       const findInstance = await this.prismaRepository.instance.findFirst({
         where: { name: instanceName },
       });
-      
+
       if (!findInstance) {
         this.logger.warn(`Instance ${instanceName} not found for cleanup`);
         return;
@@ -208,33 +208,33 @@ export class WAMonitoringService {
         try {
           this.logger.log(`Updating instance ${instanceName} status to 'close'`);
           
-          const instance = await this.prismaRepository.instance.update({
-            where: { name: instanceName },
-            data: { connectionStatus: 'close' },
-          });
+        const instance = await this.prismaRepository.instance.update({
+          where: { name: instanceName },
+          data: { connectionStatus: 'close' },
+        });
 
-          rmSync(join(INSTANCE_DIR, instance.id), { recursive: true, force: true });
-          
-          await this.prismaRepository.session.deleteMany({ where: { sessionId: instance.id } });
+        rmSync(join(INSTANCE_DIR, instance.id), { recursive: true, force: true });
+
+        await this.prismaRepository.session.deleteMany({ where: { sessionId: instance.id } });
         } catch (error) {
           this.logger.error(`Error updating instance status: ${error.message}`);
         }
-      }
+    }
 
-      if (this.redis.REDIS.ENABLED && this.redis.REDIS.SAVE_INSTANCES) {
+    if (this.redis.REDIS.ENABLED && this.redis.REDIS.SAVE_INSTANCES) {
         try {
-          await this.cache.delete(instanceName);
-          if (instanceDbId) {
-            await this.cache.delete(instanceDbId);
+      await this.cache.delete(instanceName);
+      if (instanceDbId) {
+        await this.cache.delete(instanceDbId);
           }
         } catch (error) {
           this.logger.error(`Error clearing Redis cache: ${error.message}`);
-        }
       }
+    }
 
-      if (this.providerSession?.ENABLED) {
+    if (this.providerSession?.ENABLED) {
         try {
-          await this.providerFiles.removeSession(instanceName);
+      await this.providerFiles.removeSession(instanceName);
         } catch (error) {
           this.logger.error(`Error removing session files: ${error.message}`);
         }

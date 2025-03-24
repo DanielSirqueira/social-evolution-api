@@ -223,4 +223,32 @@ export class OrganizationService {
       throw new InternalServerErrorException(error.message);
     }
   }
+
+  /**
+   * Utility method to find an organization by token
+   * @param token The organization token
+   * @returns The organization data or null if not found or feature disabled
+   */
+  async getOrganizationByToken(token: string): Promise<any> {
+    try {
+      // Check if organization feature is enabled
+      if (!this.configService.get('ORGANIZATION').ENABLED) {
+        return null;
+      }
+
+      // Find the organization with the specified token
+      const organization = await this.prismaRepository.organization.findFirst({
+        where: { token },
+      });
+
+      if (!organization) {
+        return null;
+      }
+
+      return organization;
+    } catch (error) {
+      this.logger.error(error);
+      return null;
+    }
+  }
 } 

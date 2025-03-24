@@ -16,11 +16,12 @@ export class InstanceRouter extends RouterBroker {
     this.router
       .post('/create', ...guards, async (req, res) => {
         console.log('create instance', req.body);
+        const key = req.get('apikey');
         const response = await this.dataValidate<InstanceDto>({
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => instanceController.createInstance(instance),
+          execute: (instance) => instanceController.createInstance(instance, key),
         });
 
         return res.status(HttpStatus.CREATED).json(response);

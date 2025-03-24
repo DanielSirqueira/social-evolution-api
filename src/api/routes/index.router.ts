@@ -22,6 +22,10 @@ import { MessageRouter } from './sendMessage.router';
 import { SettingsRouter } from './settings.router';
 import { TemplateRouter } from './template.router';
 import { ViewsRouter } from './view.router';
+import { Logger } from '@config/logger.config';
+import { organizationController, prismaRepository } from '@api/server.module';
+import { Auth } from '@config/env.config';
+import { BadRequestException } from '@exceptions';
 
 enum HttpStatus {
   OK = 200,
@@ -88,6 +92,47 @@ router
   .use('/settings', new SettingsRouter(...guards).router)
   .use('/proxy', new ProxyRouter(...guards).router)
   .use('/label', new LabelRouter(...guards).router)
+  .get('/organization/token', authGuard['apikey'], async (req, res) => {
+    const logger = new Logger('OrganizationTokenRoute');
+    
+    try {
+      logger.log("======== TOKEN ROUTE ACCESSED ========");
+      
+      // Get the token from header
+      const token = req.get('apikey');
+      
+      try {
+        // Use the controller method to find and validate everything
+        const organization = await organizationController.findOrganizationByTokenDirect(token);
+        
+        // Return the response
+        logger.log(`Returning organization data: ${organization.id} - ${organization.name}`);
+        return res.status(HttpStatus.OK).json(organization);
+        
+      } catch (error) {
+        // Handle specific controller errors
+        if (error.status === HttpStatus.BAD_REQUEST) {
+          logger.error(`Bad request: ${error.message}`);
+          return res.status(HttpStatus.NOT_FOUND).json({
+            status: HttpStatus.NOT_FOUND,
+            error: "Not Found",
+            message: [error.message]
+          });
+        }
+        
+        // Propagate other errors
+        throw error;
+      }
+      
+    } catch (error) {
+      logger.error(`Unhandled error: ${error.message || JSON.stringify(error)}`);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        error: "Internal Server Error",
+        message: ['An error occurred while processing your request']
+      });
+    }
+  })
   .use('/organization', new OrganizationRouter(configService, authGuard['apikey']).router)
   .use('', new ChannelRouter(configService, ...guards).router)
   .use('', new EventRouter(configService, ...guards).router)

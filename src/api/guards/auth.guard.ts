@@ -13,6 +13,7 @@ async function apikey(req: Request, _: Response, next: NextFunction) {
   const db = configService.get<Database>('DATABASE');
 
   if (!key) {
+    logger.error('No API key provided in request headers');
     throw new UnauthorizedException();
   }
 
@@ -27,6 +28,8 @@ async function apikey(req: Request, _: Response, next: NextFunction) {
   try {
     // Check if the token belongs to an organization
     if (configService.get('ORGANIZATION').ENABLED) {
+      logger.debug(`Checking organization token for: ${key}`);
+      
       const organization = await prismaRepository.organization.findFirst({
         where: { token: key },
       });
@@ -44,6 +47,12 @@ async function apikey(req: Request, _: Response, next: NextFunction) {
         if (req.originalUrl === '/organization' || req.originalUrl.startsWith('/organization?')) {
           logger.debug(`Organization token tried to access all organizations list: ${organization.id}`);
           throw new ForbiddenException('Access denied', 'Organization token cannot access other organizations');
+        }
+
+        // Allow access to /organization/token route with organization token
+        if (req.originalUrl === '/organization/token') {
+          logger.debug(`Organization accessing its own data by token: ${organization.id}`);
+          return next();
         }
 
         // Access to other organizations is not allowed

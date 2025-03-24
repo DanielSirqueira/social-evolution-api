@@ -10,6 +10,8 @@ import { CacheService } from '@api/services/cache.service';
 import { Events } from '@api/types/wa.types';
 import EventEmitter2 from 'eventemitter2';
 import { v4 } from 'uuid';
+import { diagnosticTokenCheck } from '@api/utils/organization.util';
+import { Auth } from '@config/env.config';
 
 export class OrganizationController {
   private readonly logger = new Logger('OrganizationController');
@@ -483,6 +485,156 @@ export class OrganizationController {
       this.logger.log(`Cache for ${instances.length} instances in organization ${organizationId} successfully cleared`);
     } catch (error) {
       this.logger.error(`Error clearing cache for instances in organization ${organizationId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Find an organization by its token
+   * @param token The organization token
+   * @returns The organization data or null if not found
+   */
+  async findOrganizationByToken(token: string): Promise<OrganizationDto | null> {
+    try {
+      this.logger.log(`Searching for organization with token: ${token}`);
+      
+      // Check if organization feature is enabled
+      if (!this.configService.get('ORGANIZATION').ENABLED) {
+        this.logger.debug('Organization feature is disabled');
+        throw new BadRequestException('Organization feature is disabled');
+      }
+
+      // Validate if token was provided
+      if (!token || typeof token !== 'string') {
+        this.logger.debug('Invalid organization token provided');
+        throw new BadRequestException('Invalid organization token');
+      }
+
+      // Log the token for debugging
+      this.logger.debug(`Finding organization with token: "${token}" (length: ${token.length})`);
+
+      // Find organization by token - direct query to match auth.guard.ts
+      const organization = await this.prismaRepository.organization.findFirst({
+        where: { token }
+      });
+
+      if (!organization) {
+        // Log all organizations for debugging
+        const allOrganizations = await this.prismaRepository.organization.findMany({
+          select: {
+            id: true,
+            name: true,
+            token: true
+          }
+        });
+        
+        this.logger.debug(`Available organizations: ${JSON.stringify(allOrganizations.map(o => ({
+          id: o.id,
+          name: o.name,
+          token: o.token,
+          tokenLength: o.token.length
+        })))}`);
+        
+        this.logger.error(`No organization found with token: ${token}`);
+        throw new BadRequestException('Organization not found');
+      }
+
+      this.logger.log(`Found organization by token: ${organization.id} - ${organization.name}`);
+
+      // Count instances for this organization
+      const instanceCount = await this.prismaRepository.instance.count({
+        where: { organizationId: organization.id }
+      });
+      
+      // Return the organization data
+      return {
+        id: organization.id,
+        name: organization.name,
+        description: organization.description,
+        instanceLimit: organization.instanceLimit,
+        status: organization.status as unknown as OrganizationStatus,
+        instanceCount,
+        token: organization.token
+      };
+    } catch (error) {
+      this.logger.error(`Error finding organization by token: ${error.message || JSON.stringify(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Find organization by token directly - optimized for /organization/token route
+   * @param token The organization token
+   * @returns The organization data with instance count
+   */
+  async findOrganizationByTokenDirect(token: string): Promise<any> {
+    try {
+      this.logger.log(`Direct token lookup for: "${token}"`);
+      
+      // Check if organization feature is enabled
+      if (!this.configService.get('ORGANIZATION').ENABLED) {
+        this.logger.debug('Organization feature is disabled');
+        throw new BadRequestException('Organization feature is disabled');
+      }
+
+      // Validate token
+      if (!token) {
+        this.logger.debug('No token provided');
+        throw new BadRequestException('API key is required in request headers');
+      }
+      
+      // Check if it's the global API key
+      const env = this.configService.get<Auth>('AUTHENTICATION').API_KEY;
+      if (env.KEY === token) {
+        this.logger.debug('Token is global API key, not valid for this endpoint');
+        throw new BadRequestException('Global API key is not valid for this endpoint, use an organization token');
+      }
+
+      // Direct database lookup
+      this.logger.debug(`Looking for organization with token: "${token}"`);
+      const organization = await this.prismaRepository.organization.findFirst({
+        where: { token }
+      });
+      
+      if (!organization) {
+        // Log available organizations for debugging
+        const allOrgs = await this.prismaRepository.organization.findMany({
+          select: {
+            id: true,
+            name: true,
+            token: true
+          }
+        });
+        
+        this.logger.debug(`No organization found. Available organizations (${allOrgs.length}): ${JSON.stringify(allOrgs.map(o => ({
+          id: o.id,
+          name: o.name,
+          token: `"${o.token}"`,
+          tokenLength: o.token.length
+        })))}`);
+        
+        throw new BadRequestException('No organization found with the provided token');
+      }
+      
+      this.logger.log(`Found organization: ${organization.id} - ${organization.name}`);
+      
+      // Count instances for this organization
+      const instanceCount = await this.prismaRepository.instance.count({
+        where: { organizationId: organization.id }
+      });
+      
+      // Format response
+      return {
+        id: organization.id,
+        name: organization.name,
+        description: organization.description,
+        instanceLimit: organization.instanceLimit,
+        status: organization.status as unknown as OrganizationStatus,
+        instanceCount,
+        token: organization.token
+      };
+    } catch (error) {
+      this.logger.error(`Error in direct token lookup: ${error.message || JSON.stringify(error)}`);
+      throw error;
     }
   }
 } 

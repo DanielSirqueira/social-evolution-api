@@ -1,13 +1,15 @@
 import { RouterBroker } from '@api/abstract/abstract.router';
-import { CreateOrganizationDto, OrganizationDto, UpdateOrganizationDto } from '@api/dto/organization.dto';
-import { organizationController } from '@api/server.module';
-import { ConfigService } from '@config/env.config';
+import { CreateOrganizationDto, OrganizationDto, UpdateOrganizationDto, OrganizationStatus } from '@api/dto/organization.dto';
+import { organizationController, prismaRepository } from '@api/server.module';
+import { Auth, ConfigService } from '@config/env.config';
 import { createOrganizationSchema, forceDeleteOrganizationSchema, getOrganizationSchema, listOrganizationsSchema, updateOrganizationSchema } from '@validate/organization.schema';
 import { Request, RequestHandler, Router } from 'express';
 import { JSONSchema7 } from 'json-schema';
 import { validate } from 'jsonschema';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
+import { isGlobalApiKey, findOrganizationByToken, diagnosticTokenCheck } from '@api/utils/organization.util';
+import { authGuard } from '@api/guards/auth.guard';
 
 import { HttpStatus } from './index.router';
 
